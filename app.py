@@ -170,8 +170,16 @@ def get_project(code):
     # 查创建者名字
     creator = db.execute('SELECT name FROM users WHERE id = ?', (proj['creator_id'],)).fetchone()
 
+    # 查成员详情
+    member_details = []
+    for mid in member_ids:
+        u = db.execute('SELECT id, name, avatar, avatar_type FROM users WHERE id = ?', (mid,)).fetchone()
+        if u:
+            member_details.append({'id': u['id'], 'name': u['name'], 'avatar': u['avatar'], 'avatar_type': u['avatar_type']})
+
     result = dict(proj)
     result['member_ids'] = member_ids
+    result['members'] = member_details
     result['completed'] = bool(result.get('completed', 0))
     result['creator_name'] = creator['name'] if creator else '未知'
     return jsonify(result)
