@@ -320,8 +320,10 @@ def health():
     return jsonify({'status': 'ok', 'time': now_iso()})
 
 # ===================== 启动 =====================
+# Railway / gunicorn 生产环境：导入时就初始化数据库
+init_db()
+
 if __name__ == '__main__':
     import os
-    init_db()
     port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=False)
