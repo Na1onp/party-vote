@@ -147,8 +147,12 @@ def create_project():
     db.execute('INSERT INTO project_members (project_id, user_id) VALUES (?, ?)', (proj_id, creator_id))
     db.commit()
 
+    # 查创建者名字
+    creator = db.execute('SELECT name FROM users WHERE id = ?', (creator_id,)).fetchone()
+
     return jsonify({
         'id': proj_id, 'code': code, 'name': name, 'creator_id': creator_id,
+        'creator_name': creator['name'] if creator else '未知',
         'created_at': now_iso(), 'member_ids': [creator_id],
         'completed': False, 'completed_at': None, 'summary': ''
     }), 201
