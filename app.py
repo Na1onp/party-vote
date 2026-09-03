@@ -163,9 +163,36 @@ def get_project(code):
     members = db.execute('SELECT user_id FROM project_members WHERE project_id = ?', (proj['id'],)).fetchall()
     member_ids = [m['user_id'] for m in members]
 
+    # 查创建者名字
+    creator = db.execute('SELECT name FROM users WHERE id = ?', (proj['creator_id'],)).fetchone()
+
     result = dict(proj)
     result['member_ids'] = member_ids
     result['completed'] = bool(result.get('completed', 0))
+    result['creator_name'] = creator['name'] if creator else '未知'
+    return jsonify(result)
+
+@app.route('/api/users/<user_id>/projects', methods=['GET'])
+def get_user_projects(user_id):
+    db = get_db()
+    # 找用户参与的所有项目
+    rows = db.execute('''
+        SELECT p.* FROM projects p
+        JOIN project_members pm ON p.id = pm.project_id
+        WHERE pm.user_id = ?
+        ORDER BY p.created_at DESC
+    ''', (user_id,)).fetchall()
+
+    result = []
+    for proj in rows:
+        members = db.execute('SELECT user_id FROM project_members WHERE project_id = ?', (proj['id'],)).fetchall()
+        member_ids = [m['user_id'] for m in members]
+        creator = db.execute('SELECT name FROM users WHERE id = ?', (proj['creator_id'],)).fetchone()
+        d = dict(proj)
+        d['member_ids'] = member_ids
+        d['completed'] = bool(d.get('completed', 0))
+        d['creator_name'] = creator['name'] if creator else '未知'
+        result.append(d)
     return jsonify(result)
 
 @app.route('/api/projects/join', methods=['POST'])
@@ -408,6 +435,16 @@ def get_votes(project_id):
 def delete_vote(project_id, user_id):
     db = get_db()
     db.execute('DELETE FROM votes WHERE project_id = ? AND user_id = ?', (project_id, user_id))
+    db.commit()
+    return jsonify({'success': True})
+
+@app.route('/api/projects/<code>/votes/<user_id>', methods=['DELETE'])
+def delete_vote_by_code(code, user_id):
+    db = get_db()
+    proj = db.execute('SELECT * FROM projects WHERE code = ?', (code.upper(),)).fetchone()
+    if not proj:
+        return jsonify({'error': '项目不存在'}), 404
+    db.execute('DELETE FROM votes WHERE project_id = ? AND user_id = ?', (proj['id'], user_id))
     db.commit()
     return jsonify({'success': True})
 
