@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="rPQXz1NgI74qskrgzuBTb2">
+<head data-page-node-id="OXtIpCKdxFDHlb57Y9OOnu">
+    <meta charset="UTF-8" data-page-node-id="ukoxxK8LrbzuRo7rniuBrt">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="qoOVhLRbBAMLPePYXEoCkS">
+    <title>聚会投票 online v1.0</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f0f2f5; min-height: 100vh; padding: 20px;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        .hidden { display: none !important; }
+        .card {
+            background: white; border-radius: 16px; padding: 24px;
+            margin-bottom: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        h1 { font-size: 1.5em; color: #333; margin-bottom: 8px; text-align: center; }
+        h2 { font-size: 1.2em; color: #444; margin-bottom: 16px; }
+        .subtitle { color: #888; font-size: 0.9em; text-align: center; margin-bottom: 20px; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 6px; color: #555; font-size: 0.9em; font-weight: 500; }
+        input[type="text"], input[type="date"], select, textarea {
+            width: 100%; padding: 12px 14px; border: 2px solid #e8e8e8;
+            border-radius: 10px; font-size: 1em; transition: border-color 0.2s;
+        }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #4a90d9; }
+        textarea { min-height: 80px; resize: vertical; }
+        .btn {
+            padding: 12px 20px; border: none; border-radius: 10px; font-size: 1em;
+            cursor: pointer; transition: all 0.2s; font-weight: 500;
+        }
+        .btn-primary { background: #4a90d9; color: white; }
+        .btn-primary:hover { background: #357abd; }
+        .btn-success { background: #5cb85c; color: white; }
+        .btn-success:hover { background: #4cae4c; }
+        .btn-danger { background: #d9534f; color: white; }
+        .btn-secondary { background: #f0f0f0; color: #555; }
+        .btn-full { width: 100%; }
+        .btn-small { padding: 6px 12px; font-size: 0.85em; }
+        .progress-bar {
+            display: flex; justify-content: space-between; margin-bottom: 20px;
+            padding: 0 10px;
+        }
+        .progress-step {
+            width: 30px; height: 30px; border-radius: 50%; background: #e0e0e0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.8em; color: #999; font-weight: 600;
+        }
+        .progress-step.active { background: #4a90d9; color: white; }
+        .progress-step.done { background: #5cb85c; color: white; }
+        .avatar-grid {
+            display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 12px 0;
+        }
+        .avatar-option {
+            width: 48px; height: 48px; border-radius: 50%; border: 3px solid transparent;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 1.5em; transition: all 0.2s; background: #f5f5f5;
+        }
+        .avatar-option:hover { transform: scale(1.1); }
+        .avatar-option.selected { border-color: #4a90d9; background: #e8f0fe; }
+        .avatar-option.upload {
+            background: #e8f0fe; color: #4a90d9; font-size: 1.2em;
+        }
+        .checkbox-grid, .radio-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+        }
+        .checkbox-item, .radio-item {
+            padding: 10px 12px; border: 2px solid #e8e8e8; border-radius: 10px;
+            cursor: pointer; transition: all 0.2s; font-size: 0.9em; text-align: center;
+        }
+        .checkbox-item:hover, .radio-item:hover { border-color: #4a90d9; }
+        .checkbox-item.selected, .radio-item.selected {
+            border-color: #4a90d9; background: #e8f0fe; color: #4a90d9;
+        }
+        .back-btn {
+            background: none; border: none; color: #4a90d9; cursor: pointer;
+            font-size: 0.9em; margin-bottom: 12px; padding: 4px 0;
+        }
+        .user-header {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+        }
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; font-size: 1.5em; }
+        .user-name { font-weight: 600; color: #333; }
+        .main-btns { display: flex; flex-direction: column; gap: 12px; }
+        .main-btn {
+            padding: 20px; border-radius: 16px; border: none; cursor: pointer;
+            font-size: 1.1em; font-weight: 600; transition: all 0.2s; text-align: left;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .main-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+        .btn-vote { background: #4a90d9; color: white; }
+        .btn-random { background: #f0ad4e; color: white; }
+        .btn-result { background: #5cb85c; color: white; }
+        .vote-card {
+            background: #f8f9fa; border-radius: 12px; padding: 16px; margin-bottom: 12px;
+            position: relative;
+        }
+        .vote-card .header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .vote-card .avatar { width: 36px; height: 36px; border-radius: 50%; font-size: 1.3em; }
+        .vote-card .name { font-weight: 600; color: #333; }
+        .vote-card .details { font-size: 0.85em; color: #666; line-height: 1.6; }
+        .vote-card .actions { margin-top: 10px; display: flex; gap: 8px; }
+        .toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: #333; color: white; padding: 12px 24px; border-radius: 8px;
+            z-index: 1000; font-size: 0.9em; opacity: 0; transition: opacity 0.3s;
+        }
+        .toast.show { opacity: 1; }
+        .loading {
+            display: inline-block; width: 16px; height: 16px;
+            border: 2px solid #f3f3f3; border-top: 2px solid #4a90d9;
+            border-radius: 50%; animation: spin 1s linear infinite;
+            margin-left: 8px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .section-title { font-size: 0.95em; color: #555; margin: 20px 0 10px; font-weight: 600; }
+        .project-code { background: #e8f0fe; color: #4a90d9; padding: 8px 16px; border-radius: 8px;
+            font-family: monospace; font-size: 1.2em; font-weight: 600; text-align: center;
+            margin: 10px 0; letter-spacing: 2px;
+        }
+        .watermark {
+            position: fixed; bottom: 10px; right: 10px; font-size: 0.75em;
+            color: rgba(0,0,0,0.15); pointer-events: none; z-index: 0;
+        }
+        .suggestion-card {
+            background: #fff8e1; border-left: 4px solid #f0ad4e; padding: 16px;
+            border-radius: 0 12px 12px 0; margin: 12px 0;
+        }
+        .suggestion-card h4 { color: #f0ad4e; margin-bottom: 8px; }
+        .suggestion-card p { color: #666; font-size: 0.9em; line-height: 1.6; }
+        .member-list { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+        .member-chip {
+            display: flex; align-items: center; gap: 4px;
+            background: #e8f0fe; padding: 4px 10px; border-radius: 16px; font-size: 0.85em;
+        }
+        @media (max-width: 480px) {
+            body { padding: 12px; }
+            .card { padding: 16px; }
+            .avatar-grid { grid-template-columns: repeat(5, 1fr); }
+            .avatar-option { width: 44px; height: 44px; }
+        }
+    </style>
+</head>
+<body data-page-node-id="xYbxpgkDjbgWaix9DfJCnU">
+    <div class="watermark" data-page-node-id="LFGy4CKl2FORDJaZU73J91">聚会投票 online v1.0 · 花落北海</div>
+    <div class="container" data-page-node-id="1YMIBhU4tNjhwGbpMbAvxM">
+        <div id="toast" class="toast" data-page-node-id="ThCRX1EdA0iuVhCfoYRi9B"></div>
+
+        <!-- 登录页 -->
+        <div id="loginPage" data-page-node-id="xs7Od2Uo8vNFpvAv0FsXBq">
+            <div class="card" data-page-node-id="EKJ1enJ5xs4DBWq2uJecX5">
+                <h1 data-page-node-id="EhKFgDRUTUXJv4iktAfTN5">聚会投票</h1>
+                <p class="subtitle" data-page-node-id="9YJCvqFIyLZotdvpqyNN8I">在线版 — 朋友一起选时间、选项目</p>
+                <h2 style="margin-top:20px" data-page-node-id="gDzXj0NFmzdzdXGxLG1Ra0">👤 选个头像</h2>
+                <div class="avatar-grid" id="avatarGrid" data-page-node-id="xmzaiJk9dbSovfZUkZL47g"></div>
+                <div class="form-group" style="margin-top:16px" data-page-node-id="waPCywKis34VU9by9hmXA1">
+                    <label data-page-node-id="tHD4Pwen5iLk21FWdk91i4">✏️ 设置名字</label>
+                    <input type="text" id="loginName" placeholder="让大家怎么称呼你？" data-page-node-id="J4YjMz7cp2XN1gYgtdfkDE">
+                    <div id="nameError" style="color:#d9534f;font-size:0.85em;margin-top:4px;display:none" data-page-node-id="BmrtldUgq5A5TlH2kF5fXc">这个名字已经被使用了</div>
+                </div>
+                <button class="btn btn-success btn-full" onclick="completeLogin()" id="loginBtn" data-page-node-id="ilVj5Er24LPja14SXc0zHh">🚀 开始</button>
+            </div>
+            <div id="historyUsersSection" class="hidden" data-page-node-id="IfwHZ2UsFPbzdF9MDpFVIa">
+                <div class="section-title" data-page-node-id="0qHSfq4DfAkB9A4m6nvD6K">👋 之前登录过</div>
+                <div id="historyUsersList" data-page-node-id="cGiiBF6rXCWjD8FXdsIQxQ"></div>
+            </div>
+        </div>
+
+        <!-- 主页 -->
+        <div id="homePage" class="hidden" data-page-node-id="bw33XCx5peG04FZDK3Jzw1">
+            <div class="card" data-page-node-id="jzrfwnxljNsFf9rqrKEMnE">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px" data-page-node-id="2fY56n1XBCIF7cCIHBGK3e">
+                    <div class="user-header" data-page-node-id="BWlwz6JWGMm68ykPiZWYWV">
+                        <div class="user-avatar" id="homeAvatar" data-page-node-id="gRpoROzB89Jj5p0UbX07dM"></div>
+                        <div data-page-node-id="B6FCurHiwid92erkZQhXBC">
+                            <div class="user-name" id="homeUserName" data-page-node-id="8Cpb5Ia2ha36A9CKqyO2vk"></div>
+                            <div style="font-size:0.8em;color:#888" data-page-node-id="2Ai8MFITbxSEbuEn0CoBGy">聚会投票 online</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary btn-small" onclick="logout()" data-page-node-id="cJDOHl8aIgquUmgweWziSZ">退出</button>
+                </div>
+                <div class="main-btns" data-page-node-id="xUZRWAFdxm29nLgtf0FN4t">
+                    <button class="main-btn btn-vote" onclick="showProjects()" data-page-node-id="teOhNObXZDEq55cPorug0Y">🏠 项目/房间</button>
+                    <button class="main-btn btn-random" onclick="showSimpleMode()" data-page-node-id="G2TS6Ztxu61X8VJcLPtpfT">⚡ 简易模式</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 项目列表页 -->
+        <div id="projectsPage" class="hidden" data-page-node-id="oItYNkRmJDuXBssJ5MpDqV">
+            <button class="back-btn" onclick="goHome()" data-page-node-id="2rGj58JEHhuZrHzR0mIyBU">← 返回主页</button>
+            <div class="card" data-page-node-id="IvuPCeVVF41fCFnAwiKQgN">
+                <h2 data-page-node-id="QCpa8Sr8xYP14NckU9oDYM">🏠 我的项目</h2>
+                <div id="projectList" data-page-node-id="HslYIj9afKQ0Dz4z88Sm8W"></div>
+                <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="showCreateProject()" data-page-node-id="a76elRgQeaail6Dx0942id">+ 创建新项目</button>
+                <button class="btn btn-secondary btn-full" style="margin-top:8px" onclick="showJoinProject()" data-page-node-id="0uNGNWr3Xv1f4MnKBkl8I6">🔗 加入项目</button>
+            </div>
+        </div>
+
+        <!-- 创建项目页 -->
+        <div id="createProjectPage" class="hidden" data-page-node-id="DAJJlcvzpRUvaNJW0ku1JY">
+            <button class="back-btn" onclick="showProjects()" data-page-node-id="hOh32nMykaijc49ZjFPihY">← 返回项目列表</button>
+            <div class="card" data-page-node-id="p9OKqkfQEbPE0s0K7KcJ7Q">
+                <h2 data-page-node-id="AWC8p5l6Fq9EKeIOER4dm4">🏠 创建新项目</h2>
+                <div class="form-group" data-page-node-id="NjRTjBGD4INuxVfF5nt5bc">
+                    <label data-page-node-id="zuSJF9hfIQ1eAagPuKUEWJ">项目名称</label>
+                    <input type="text" id="projectName" placeholder="比如：国庆天津聚会" data-page-node-id="QghK9WK2Arjz3bWT57IOq1">
+                </div>
+                <button class="btn btn-success btn-full" onclick="createProject()" id="createProjectBtn" data-page-node-id="jBFFiJE2Fv1m7QeFwe2TQw">创建</button>
+            </div>
+        </div>
+
+        <!-- 加入项目页 -->
+        <div id="joinProjectPage" class="hidden" data-page-node-id="i6BuYVHf4GRxZyxoKhwAmU">
+            <button class="back-btn" onclick="showProjects()" data-page-node-id="pBxn0qAYUFQKj4vBM93XAd">← 返回项目列表</button>
+            <div class="card" data-page-node-id="YlQGqQC0UQwTMq12yOSjcp">
+                <h2 data-page-node-id="1foNLUPUc5M0rks24QVZFZ">🔗 加入项目</h2>
+                <div class="form-group" data-page-node-id="hazzrYtPFWeXEkXqdyF2s5">
+                    <label data-page-node-id="JGADD2ZiZfCTlI4Ynpkwmm">输入房间代码</label>
+                    <input type="text" id="joinCode" placeholder="如：AB12CD" maxlength="6" style="text-transform:uppercase" data-page-node-id="xCk6wJaEkeUnEDvCipesi2">
+                </div>
+                <button class="btn btn-success btn-full" onclick="joinProject()" id="joinProjectBtn" data-page-node-id="f6xNMbfvmH5f52BjeL3Zp4">加入</button>
+            </div>
+        </div>
+
+        <!-- 项目详情页 -->
+        <div id="projectDetailPage" class="hidden" data-page-node-id="K7wB5SvnaqLIldfnKnR0xG">
+            <button class="back-btn" onclick="showProjects()" data-page-node-id="daMvdTskyw8XBprUaNCG77">← 返回项目列表</button>
+            <div class="card" data-page-node-id="7o2motnMhcdq7xIgGADaUG">
+                <h2 id="detailProjectName" data-page-node-id="IzZH5ZhPZcSKQcWvyFH6zl"></h2>
+                <div id="detailProjectInfo" data-page-node-id="zYWVFqWijdop8n5UONTxhn"></div>
+                <div class="member-list" id="detailMembers" data-page-node-id="BEL1HNzED855ELR5UjieuK"></div>
+                <div style="display:flex;gap:8px;margin-top:12px" data-page-node-id="0XZ5gvgIRAI7lunEz9bSlk">
+                    <button class="btn btn-primary btn-full" onclick="startVote()" data-page-node-id="ptTq8AtBcBEWC3OVJDelRm">📝 填写投票</button>
+                    <button class="btn btn-success btn-full" onclick="showOnlineResults()" data-page-node-id="V11ALOATJZ1EbtUkd7fR6V">📊 查看结果</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 投票向导 -->
+        <div id="voteWizard" class="hidden" data-page-node-id="khcqoIDXKTNarxb4rtBz0V">
+            <button class="back-btn" onclick="backFromVote()" data-page-node-id="cFbcCE9O3pmX4U8tyb3JEt">← 返回</button>
+            <div class="progress-bar" id="voteProgress" data-page-node-id="UO5NBdXTFtAUQIEBwMvASV"></div>
+            <div id="voteStepContent" data-page-node-id="LhkEaDdCv8LHMb1SdE2PuW"></div>
+        </div>
+
+        <!-- 结果页 -->
+        <div id="resultsPage" class="hidden" data-page-node-id="4h5rJDqKSdescP3tYQFyxi">
+            <button class="back-btn" onclick="backFromResults()" data-page-node-id="3qQXQctb1F0vNKqJBwNOSy">← 返回</button>
+            <div class="card" data-page-node-id="pQCmBMyleZTaAEmKFMAwEB">
+                <h2 data-page-node-id="SfropDGXNBDHEyIqa9Mv9t">📊 投票结果</h2>
+                <div id="resultsContent" data-page-node-id="ozdOjJPPqXHGmmONhIsXCb">加载中...</div>
+            </div>
+        </div>
+
+        <!-- 简易模式 -->
+        <div id="simpleModePage" class="hidden" data-page-node-id="Ubfmwf9RFvtzolFyHfqODF">
+            <button class="back-btn" onclick="goHome()" data-page-node-id="4x2BLkbEeNeeWrQLxXis4i">← 返回主页</button>
+            <div class="card" data-page-node-id="qUGLlnTYbc8J6fKniSFuHU">
+                <h2 data-page-node-id="y7TfjsaewwRzRsIQKeTv4Z">⚡ 简易模式</h2>
+                <p class="subtitle" data-page-node-id="wzMpTwgTsJrOG3N9nCQZzO">临时决定下午干嘛？点一下就有建议</p>
+                <div class="form-group" data-page-node-id="mVhPb1dmMUBh4lCLjQCuZY">
+                    <label data-page-node-id="4GYN8HdcqYceCzv4ycsVCj">几个人？</label>
+                    <div class="radio-grid" id="simplePeople" data-page-node-id="Devgxw2ZKZgwjMQfzaP2jg"></div>
+                </div>
+                <div class="form-group" data-page-node-id="8UwPnIp9bgaBuJ22BddgZg">
+                    <label data-page-node-id="BRU0aEYVSLNFOis4QAfeZs">什么时候？</label>
+                    <div class="radio-grid" id="simpleWhen" data-page-node-id="V6YdVklbKtCRYLeMUT6hOE"></div>
+                </div>
+                <div class="form-group" data-page-node-id="ApiQtDweIynSJhPWnEc4si">
+                    <label data-page-node-id="ep18ttxlNeXYdGyM0R2gXL">预算？</label>
+                    <div class="radio-grid" id="simpleBudget" data-page-node-id="ai76HgZm3cZqiiEmAbLn2F"></div>
+                </div>
+                <div class="form-group" data-page-node-id="I8A2EF8fLWaDYgucvh78CQ">
+                    <label data-page-node-id="OdIPN0X2v7FxTxev954jAk">想干嘛？</label>
+                    <div class="radio-grid" id="simpleWant" data-page-node-id="wqbeh8OUmgXwAZRSmqK5Ch"></div>
+                </div>
+                <button class="btn btn-success btn-full" onclick="generateSimple()" id="simpleBtn" data-page-node-id="DkPtx03zSOfarvB3Wa6Nko">给我建议</button>
+                <div id="simpleResult" data-page-node-id="A2BU4Fb01QZDskKtduSpT5"></div>
+            </div>
+        </div>
+    </div>
+
+<script>
+// ========== API 配置 ==========
+const API_BASE = 'https://party-vote-production.up.railway.app';
+
+// ========== 状态 ==========
+let currentUser = null;
+let currentProject = null;
+let tempAvatar = '😊';
+let voteStep = 0;
+let voteData = {};
+
+// ========== 工具函数 ==========
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+}
+function hideAll() {
+    ['loginPage','homePage','projectsPage','createProjectPage','joinProjectPage',
+     'projectDetailPage','voteWizard','resultsPage','simpleModePage'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+    });
+}
+function uid() { return Math.random().toString(36).substring(2, 10); }
+
+async function api(path, opts = {}) {
+    const url = API_BASE + path;
+    const res = await fetch(url, {
+        headers: { 'Content-Type': 'application/json' },
+        ...opts,
+        body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+}
+
+// ========== 登录 ==========
+const AVATARS = ['😊','🎉','🌟','🎈','🍀','🌸','🎨','🎮','🎵','🍕','🌮','🍜',
+    '🎭','🎪','🎯','🎲','🎸','🎺','🎻','🎹','🎬','🎤','🎧','🎮',
+    '🏀','⚽','🎾','🏐','🏓','🎳','⛳','🏹','🎣','🎿','🏂','⛷️',
+    '🚴','🚵','🏇','🏊','🏄','🚣','⛵','🚤','🛳️','✈️','🚁','🚂'];
+
+function renderAvatarGrid() {
+    const grid = document.getElementById('avatarGrid');
+    grid.innerHTML = '';
+    AVATARS.forEach((a, i) => {
+        const div = document.createElement('div');
+        div.className = 'avatar-option' + (i === 0 ? ' selected' : '');
+        div.textContent = a;
+        div.onclick = () => {
+            document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
+            div.classList.add('selected'); tempAvatar = a;
+        };
+        grid.appendChild(div);
+    });
+}
+
+function renderHistoryUsers() {
+    // online版暂不支持本地历史，因为数据都在后端
+}
+
+async function completeLogin() {
+    const name = document.getElementById('loginName').value.trim();
+    if (!name) { showToast('请输入名字'); return; }
+    const btn = document.getElementById('loginBtn');
+    btn.innerHTML = '登录中<span class="loading"></span>';
+    btn.disabled = true;
+    try {
+        const user = await api('/api/users', { method: 'POST', body: { name, avatar: tempAvatar, avatar_type: 'emoji' } });
+        currentUser = user;
+        localStorage.setItem('party_online_user', JSON.stringify(user));
+        goHome();
+    } catch (e) {
+        if (e.message.includes('已存在')) {
+            document.getElementById('nameError').style.display = 'block';
+            showToast('这个名字已被使用');
+        } else {
+            showToast('登录失败：' + e.message);
+        }
+    } finally {
+        btn.innerHTML = '🚀 开始'; btn.disabled = false;
+    }
+}
+
+function initLogin() {
+    const saved = localStorage.getItem('party_online_user');
+    if (saved) {
+        try { currentUser = JSON.parse(saved); goHome(); return; } catch(e){}
+    }
+    hideAll(); document.getElementById('loginPage').classList.remove('hidden');
+    renderAvatarGrid();
+    document.getElementById('loginName').value = '';
+    document.getElementById('nameError').style.display = 'none';
+}
+
+function logout() {
+    currentUser = null;
+    currentProject = null;
+    localStorage.removeItem('party_online_user');
+    initLogin();
+}
+
+function goHome() {
+    hideAll(); document.getElementById('homePage').classList.remove('hidden');
+    document.getElementById('homeAvatar').textContent = currentUser?.avatar || '😊';
+    document.getElementById('homeUserName').textContent = 'Hi, ' + (currentUser?.name || '');
+}
+
+// ========== 项目 ==========
+async function showProjects() {
+    hideAll(); document.getElementById('projectsPage').classList.remove('hidden');
+    const list = document.getElementById('projectList');
+    list.innerHTML = '<div style="text-align:center;color:#888;padding:20px">加载中...</div>';
+    try {
+        // 后端没有 "我的项目" 列表接口，这里简化：让用户输入代码加入
+        list.innerHTML = '<div style="text-align:center;color:#888;padding:20px">点击上方「加入项目」输入房间代码，或「创建新项目」</div>';
+    } catch(e) { showToast('加载失败'); }
+}
+
+function showCreateProject() {
+    hideAll(); document.getElementById('createProjectPage').classList.remove('hidden');
+    document.getElementById('projectName').value = '';
+}
+
+async function createProject() {
+    const name = document.getElementById('projectName').value.trim();
+    if (!name) { showToast('请输入项目名称'); return; }
+    const btn = document.getElementById('createProjectBtn');
+    btn.innerHTML = '创建中<span class="loading"></span>'; btn.disabled = true;
+    try {
+        const project = await api('/api/projects', {
+            method: 'POST',
+            body: { name, creator_id: currentUser.id }
+        });
+        showProjectDetail(project);
+        showToast('项目创建成功！代码：' + project.code);
+    } catch(e) {
+        showToast('创建失败：' + e.message);
+    } finally {
+        btn.innerHTML = '创建'; btn.disabled = false;
+    }
+}
+
+function showJoinProject() {
+    hideAll(); document.getElementById('joinProjectPage').classList.remove('hidden');
+    document.getElementById('joinCode').value = '';
+}
+
+async function joinProject() {
+    const code = document.getElementById('joinCode').value.trim().toUpperCase();
+    if (!code || code.length !== 6) { showToast('请输入6位房间代码'); return; }
+    const btn = document.getElementById('joinProjectBtn');
+    btn.innerHTML = '加入中<span class="loading"></span>'; btn.disabled = true;
+    try {
+        const result = await api(`/api/projects/${code}/join`, {
+            method: 'POST',
+            body: { user_id: currentUser.id }
+        });
+        showProjectDetail(result.project);
+        showToast('加入成功！');
+    } catch(e) {
+        showToast('加入失败：' + e.message);
+    } finally {
+        btn.innerHTML = '加入'; btn.disabled = false;
+    }
+}
+
+async function showProjectDetail(project) {
+    currentProject = project;
+    hideAll(); document.getElementById('projectDetailPage').classList.remove('hidden');
+    document.getElementById('detailProjectName').textContent = '🏠 ' + project.name;
+    document.getElementById('detailProjectInfo').innerHTML = `
+        <div style="margin-bottom:8px">创建者：${project.creator_name || '未知'}</div>
+        <div class="project-code">${project.code}</div>
+        <div style="font-size:0.85em;color:#888;text-align:center">把这个代码发给朋友，让他们加入</div>
+    `;
+    // 加载成员
+    try {
+        const projectData = await api(`/api/projects/${project.code}`);
+        const members = projectData.members || [];
+        const mdiv = document.getElementById('detailMembers');
+        if (members.length === 0) {
+            mdiv.innerHTML = '<div style="color:#888;font-size:0.85em">还没有其他成员加入</div>';
+        } else {
+            mdiv.innerHTML = members.map(m =>
+                `<div class="member-chip"><span>${m.avatar || '😊'}</span><span>${m.name}</span></div>`
+            ).join('');
+        }
+    } catch(e) {
+        document.getElementById('detailMembers').innerHTML = '';
+    }
+}
+
+// ========== 投票向导 ==========
+const VOTE_STEPS = [
+    { title: '👤 确认', render: renderVoteStep0 },
+    { title: '📅 日期', render: renderVoteStep1 },
+    { title: '🎯 项目', render: renderVoteStep2 },
+    { title: '📝 偏好', render: renderVoteStep3 },
+    { title: '🚗 出行', render: renderVoteStep4 },
+    { title: '💡 其他', render: renderVoteStep5 },
+    { title: '✅ 确认', render: renderVoteStep6 },
+];
+
+function startVote() {
+    voteStep = 0;
+    voteData = { name: currentUser.name, avatar: currentUser.avatar };
+    showVoteStep();
+}
+
+function showVoteStep() {
+    hideAll(); document.getElementById('voteWizard').classList.remove('hidden');
+    const progress = document.getElementById('voteProgress');
+    progress.innerHTML = VOTE_STEPS.map((s, i) =>
+        `<div class="progress-step ${i === voteStep ? 'active' : i < voteStep ? 'done' : ''}">${i + 1}</div>`
+    ).join('');
+    VOTE_STEPS[voteStep].render();
+}
+
+function renderVoteStep0() {
+    document.getElementById('voteStepContent').innerHTML = `
+        <div class="card">
+            <h2>${VOTE_STEPS[0].title}</h2>
+            <div style="text-align:center;padding:20px">
+                <div style="font-size:3em;margin-bottom:12px">${currentUser.avatar}</div>
+                <div style="font-size:1.2em;font-weight:600">${currentUser.name}</div>
+                <div style="color:#888;margin-top:8px">确认以这个身份投票</div>
+            </div>
+            <button class="btn btn-success btn-full" onclick="voteNext()">确认，下一步</button>
+        </div>
+    `;
+}
+
+function renderVoteStep1() {
+    document.getElementById('voteStepContent').innerHTML = `
+        <div class="card">
+            <h2>${VOTE_STEPS[1].title}</h2>
+            <div class="form-group">
+                <label>选择日期（可多选）</label>
+                <input type="date" id="voteDate" style="margin-bottom:8px">
+                <div id="selectedDates" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>
+                <button class="btn btn-secondary btn-small" onclick="addVoteDate()">+ 添加这个日期</button>
+            </div>
+            <div style="display:flex;gap:8px">
+                <button class="btn btn-secondary" style="flex:1" onclick="votePrev()">← 上一步</button>
+                <button class="btn btn-success" style="flex:1" onclick="voteNext()">下一步 →</button>
+            </div>
+        </div>
+    `;
+    voteData.dates = voteData.dates || [];
+    updateSelectedDates();
+}
+
+function addVoteDate() {
+    const d = document.getElementById('voteDate').value;
+    if (!d) return;
+    if (!voteData.dates.includes(d)) voteData.dates.push(d);
+    updateSelectedDates();
+}
+function updateSelectedDates() {
+    const div = document.getElementById('selectedDates');
+    if (!div) return;
+    div.innerHTML = (voteData.dates || []).map(d =>
+        `<span style="background:#e8f0fe;color:#4a90d9;padding:4px 10px;border-radius:12px;font-size:0.85em">${d}</span>`
+    ).join('');
+}
+
+const ACTIVITY_CATEGORIES = {
+    '🍜 美食餐饮': ['火锅','烧烤','日料','韩料','川菜','粤菜','天津菜','东北菜','新疆菜','云南菜','西餐','自助餐','早茶','小吃街','甜品店','奶茶店','居酒屋','大排档','海鲜','私房菜','其他'],
+    '🎭 室内娱乐': ['KTV','电影院','密室逃脱','剧本杀','桌游吧','网吧','猫咖','狗咖','电玩城','抓娃娃','轰趴馆','棋牌室','DIY手工','陶艺','烘焙','银饰DIY','Tufting','脱口秀','相声','话剧','Livehouse','博物馆','美术馆','科技馆','书店','温泉','按摩','理发','美甲','拍照馆','射箭','室内攀岩','室内卡丁车','室内滑冰','室内滑雪','VR','其他'],
+    '🌳 户外运动': ['公园散步','野餐','露营','骑行','爬山','海边','动物园','植物园','赏花','钓鱼','划船','放风筝','摄影扫街','羽毛球','乒乓球','篮球','台球','游泳','健身房','真人CS','滑板','轮滑','其他'],
+    '🛍️ 逛街购物': ['逛商场','夜市','早市','花市','古玩市场','宜家','山姆/Costco','奥特莱斯','跳蚤市场','手作市集','其他'],
+    '🌙 夜生活': ['酒吧','清吧','Livehouse夜场','夜市','夜景观赏','深夜食堂','露天烧烤','夜间骑行','其他'],
+    '🎨 文化体验': ['茶文化','咖啡品鉴','红酒品鉴','烹饪课','手工课','寺庙/道观','古镇/老街','书法体验','其他']
+};
+
+function renderVoteStep2() {
+    let html = `<div class="card"><h2>${VOTE_STEPS[2].title}</h2><p style="color:#888;font-size:0.85em;margin-bottom:12px">选择想玩什么（可多选）</p>`;
+    voteData.activities = voteData.activities || [];
+    for (const [cat, items] of Object.entries(ACTIVITY_CATEGORIES)) {
+        html += `<div class="section-title">${cat}</div><div class="checkbox-grid">`;
+        items.forEach(item => {
+            const selected = voteData.activities.includes(item) ? 'selected' : '';
+            html += `<div class="checkbox-item ${selected}" onclick="toggleActivity(this,'${item}')">${item}</div>`;
+        });
+        html += '</div>';
+    }
+    html += `
+        <div style="display:flex;gap:8px;margin-top:16px">
+            <button class="btn btn-secondary" style="flex:1" onclick="votePrev()">← 上一步</button>
+            <button class="btn btn-success" style="flex:1" onclick="voteNext()">下一步 →</button>
+        </div>
+    </div>`;
+    document.getElementById('voteStepContent').innerHTML = html;
+}
+
+function toggleActivity(el, item) {
+    el.classList.toggle('selected');
+    if (!voteData.activities) voteData.activities = [];
+    if (voteData.activities.includes(item)) {
+        voteData.activities = voteData.activities.filter(a => a !== item);
+    } else {
+        voteData.activities.push(item);
+    }
+}
+
+function renderVoteStep3() {
+    const hasFood = (voteData.activities || []).some(a =>
+        ACTIVITY_CATEGORIES['🍜 美食餐饮'].includes(a) && a !== '其他'
+    );
+    let html = `<div class="card"><h2>${VOTE_STEPS[3].title}</h2>`;
+    if (hasFood) {
+        html += `
+            <div class="form-group">
+                <label>🍽️ 菜系偏好</label>
+                <select id="cuisine"><option value="">不挑</option>
+                    <option>火锅</option><option>烧烤</option><option>日料</option><option>韩料</option>
+                    <option>川菜</option><option>粤菜</option><option>天津菜</option><option>东北菜</option>
+                    <option>新疆菜</option><option>云南菜</option><option>西餐</option><option>自助餐</option>
+                    <option>早茶</option><option>小吃街</option><option>其他</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>🏪 想去的餐馆（选填）</label>
+                <input type="text" id="restaurant" placeholder="比如：海底捞、萨莉亚">
+            </div>
+        `;
+    }
+    html += `
+        <div class="form-group">
+            <label>偏好标签（多选）</label>
+            <div class="checkbox-grid" id="prefTags">
+                ${['室内','户外','安静','热闹','拍照好看','适合聊天','轻松不累','出出汗','吃货向','文化体验','夜猫子','宠物友好'].map(t =>
+                    `<div class="checkbox-item" onclick="this.classList.toggle('selected')">${t}</div>`
+                ).join('')}
+            </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:16px">
+            <button class="btn btn-secondary" style="flex:1" onclick="votePrev()">← 上一步</button>
+            <button class="btn btn-success" style="flex:1" onclick="voteNext()">下一步 →</button>
+        </div>
+    </div>`;
+    document.getElementById('voteStepContent').innerHTML = html;
+    if (voteData.cuisine) document.getElementById('cuisine').value = voteData.cuisine;
+    if (voteData.restaurant) document.getElementById('restaurant').value = voteData.restaurant;
+}
+
+const TRANSPORT_OPTIONS = ['打车','地铁','公交','电动车','自行车','步行','自驾','高铁','飞机','轮渡','其他'];
+
+function renderVoteStep4() {
+    voteData.transport = voteData.transport || '';
+    let html = `<div class="card"><h2>${VOTE_STEPS[4].title}</h2><div class="radio-grid">`;
+    TRANSPORT_OPTIONS.forEach(opt => {
+        const sel = voteData.transport === opt ? 'selected' : '';
+        html += `<div class="radio-item ${sel}" onclick="selectTransport(this,'${opt}')">${opt}</div>`;
+    });
+    html += `</div>
+        <div style="display:flex;gap:8px;margin-top:16px">
+            <button class="btn btn-secondary" style="flex:1" onclick="votePrev()">← 上一步</button>
+            <button class="btn btn-success" style="flex:1" onclick="voteNext()">下一步 →</button>
+        </div>
+    </div>`;
+    document.getElementById('voteStepContent').innerHTML = html;
+}
+
+function selectTransport(el, opt) {
+    document.querySelectorAll('#voteStepContent .radio-item').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected'); voteData.transport = opt;
+}
+
+function renderVoteStep5() {
+    document.getElementById('voteStepContent').innerHTML = `
+        <div class="card">
+            <h2>${VOTE_STEPS[5].title}</h2>
+            <div class="form-group">
+                <label>👥 大概人数</label>
+                <select id="people"><option value="">不选</option>
+                    <option>1-2人</option><option>3-5人</option><option>6-10人</option><option>10人以上</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>💰 预算范围</label>
+                <select id="budget"><option value="">不选</option>
+                    <option>省钱(&lt;100)</option><option>中等(100-300)</option><option>富裕(300-500)</option><option>土豪(500+)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>💬 备注（特殊需求）</label>
+                <textarea id="note" placeholder="比如：有人不吃辣、需要带宠物..."></textarea>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:16px">
+                <button class="btn btn-secondary" style="flex:1" onclick="votePrev()">← 上一步</button>
+                <button class="btn btn-success" style="flex:1" onclick="voteNext()">下一步 →</button>
+            </div>
+        </div>
+    `;
+    if (voteData.people) document.getElementById('people').value = voteData.people;
+    if (voteData.budget) document.getElementById('budget').value = voteData.budget;
+    if (voteData.note) document.getElementById('note').value = voteData.note;
+}
+
+function renderVoteStep6() {
+    const activities = (voteData.activities || []).join('、') || '未选择';
+    const dates = (voteData.dates || []).join('、') || '未选择';
+    const cuisine = document.getElementById('cuisine')?.value || '';
+    const restaurant = document.getElementById('restaurant')?.value || '';
+    const people = document.getElementById('people')?.value || '';
+    const budget = document.getElementById('budget')?.value || '';
+    const note = document.getElementById('note')?.value || '';
+    const tags = Array.from(document.querySelectorAll('#prefTags .selected')).map(el => el.textContent).join('、');
+
+    voteData.cuisine = cuisine; voteData.restaurant = restaurant;
+    voteData.people = people; voteData.budget = budget; voteData.note = note; voteData.tags = tags;
+
+    document.getElementById('voteStepContent').innerHTML = `
+        <div class="card">
+            <h2>${VOTE_STEPS[6].title}</h2>
+            <div style="background:#f8f9fa;border-radius:10px;padding:16px;line-height:1.8;font-size:0.9em">
+                <div><strong>名字：</strong>${voteData.name}</div>
+                <div><strong>日期：</strong>${dates}</div>
+                <div><strong>项目：</strong>${activities}</div>
+                ${cuisine ? `<div><strong>菜系：</strong>${cuisine}</div>` : ''}
+                ${restaurant ? `<div><strong>餐馆：</strong>${restaurant}</div>` : ''}
+                ${voteData.transport ? `<div><strong>出行：</strong>${voteData.transport}</div>` : ''}
+                ${people ? `<div><strong>人数：</strong>${people}</div>` : ''}
+                ${budget ? `<div><strong>预算：</strong>${budget}</div>` : ''}
+                ${tags ? `<div><strong>标签：</strong>${tags}</div>` : ''}
+                ${note ? `<div><strong>备注：</strong>${note}</div>` : ''}
+            </div>
+            <div style="display:flex;gap:8px;margin-top:16px">
+                <button class="btn btn-secondary" style="flex:1" onclick="votePrev()">← 修改</button>
+                <button class="btn btn-success" style="flex:1" onclick="submitVote()">✅ 提交投票</button>
+            </div>
+        </div>
+    `;
+}
+
+function voteNext() { if (voteStep < VOTE_STEPS.length - 1) { voteStep++; showVoteStep(); } }
+function votePrev() { if (voteStep > 0) { voteStep--; showVoteStep(); } }
+function backFromVote() { voteStep = 0; showProjectDetail(currentProject); }
+
+async function submitVote() {
+    const btn = document.querySelector('#voteStepContent .btn-success');
+    btn.innerHTML = '提交中<span class="loading"></span>'; btn.disabled = true;
+    try {
+        await api(`/api/projects/${currentProject.code}/votes`, {
+            method: 'POST',
+            body: {
+                user_id: currentUser.id,
+                name: voteData.name,
+                avatar: voteData.avatar,
+                dates_json: JSON.stringify(voteData.dates || []),
+                activities_json: JSON.stringify(voteData.activities || []),
+                cuisine: voteData.cuisine || '',
+                restaurant: voteData.restaurant || '',
+                transport: voteData.transport || '',
+                people: voteData.people || '',
+                budget: voteData.budget || '',
+                tags_json: JSON.stringify(voteData.tags || []),
+                note: voteData.note || '',
+                details_json: JSON.stringify({})
+            }
+        });
+        showToast('投票提交成功！');
+        showProjectDetail(currentProject);
+    } catch(e) {
+        showToast('提交失败：' + e.message);
+        btn.innerHTML = '✅ 提交投票'; btn.disabled = false;
+    }
+}
+
+// ========== 结果页 ==========
+async function showOnlineResults() {
+    hideAll(); document.getElementById('resultsPage').classList.remove('hidden');
+    const content = document.getElementById('resultsContent');
+    content.innerHTML = '加载中...';
+    try {
+        const votes = await api(`/api/projects/${currentProject.code}/votes`);
+        const stats = await api(`/api/projects/${currentProject.code}/stats`);
+        renderResults(content, votes.votes || [], stats);
+    } catch(e) {
+        content.innerHTML = '<div style="color:#d9534f">加载失败：' + e.message + '</div>';
+    }
+}
+
+function renderResults(container, votes, stats) {
+    if (votes.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:#888;padding:20px">还没有人投票</div>';
+        return;
+    }
+    let html = '';
+
+    // 统计摘要
+    html += '<div style="margin-bottom:16px">';
+    if (stats.best_date) html += `<div style="background:#e8f0fe;padding:10px 14px;border-radius:10px;margin-bottom:8px"><strong>📅 最佳日期：</strong>${stats.best_date}</div>`;
+    if (stats.top_activity) html += `<div style="background:#fff8e1;padding:10px 14px;border-radius:10px;margin-bottom:8px"><strong>🎯 热门项目：</strong>${stats.top_activity}</div>`;
+    html += '</div>';
+
+    // 每个人的投票
+    votes.forEach(v => {
+        const activities = JSON.parse(v.activities_json || '[]').join('、') || '无';
+        const dates = JSON.parse(v.dates_json || '[]').join('、') || '无';
+        html += `
+            <div class="vote-card">
+                <div class="header">
+                    <div class="avatar">${v.avatar || '😊'}</div>
+                    <div class="name">${v.name}</div>
+                </div>
+                <div class="details">
+                    <div>📅 ${dates}</div>
+                    <div>🎯 ${activities}</div>
+                    ${v.transport ? `<div>🚗 ${v.transport}</div>` : ''}
+                    ${v.cuisine ? `<div>🍽️ ${v.cuisine}</div>` : ''}
+                    ${v.restaurant ? `<div>🏪 ${v.restaurant}</div>` : ''}
+                    ${v.people ? `<div>👥 ${v.people}</div>` : ''}
+                    ${v.budget ? `<div>💰 ${v.budget}</div>` : ''}
+                    ${v.note ? `<div>💬 ${v.note}</div>` : ''}
+                </div>
+                ${v.user_id === currentUser.id ? `
+                    <div class="actions">
+                        <button class="btn btn-secondary btn-small" onclick="editMyVote()">修改</button>
+                        <button class="btn btn-danger btn-small" onclick="deleteMyVote()">删除</button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function backFromResults() { showProjectDetail(currentProject); }
+
+async function deleteMyVote() {
+    if (!confirm('确定删除你的投票？')) return;
+    try {
+        await api(`/api/projects/${currentProject.code}/votes/${currentUser.id}`, { method: 'DELETE' });
+        showToast('已删除'); showOnlineResults();
+    } catch(e) { showToast('删除失败：' + e.message); }
+}
+
+function editMyVote() { startVote(); }
+
+// ========== 简易模式 ==========
+function showSimpleMode() {
+    hideAll(); document.getElementById('simpleModePage').classList.remove('hidden');
+    renderSimpleOptions('simplePeople', ['就我自己','两个人','三五人','一大群']);
+    renderSimpleOptions('simpleWhen', ['就现在','今天下午','今晚','这周末']);
+    renderSimpleOptions('simpleBudget', ['免费','正常','不差钱']);
+    renderSimpleOptions('simpleWant', ['吃饭','玩点什么','放松','随便帮我决定']);
+}
+
+function renderSimpleOptions(id, items) {
+    const div = document.getElementById(id);
+    div.innerHTML = items.map(item =>
+        `<div class="radio-item" onclick="selectSimple(this,'${id}')">${item}</div>`
+    ).join('');
+}
+function selectSimple(el, group) {
+    document.querySelectorAll('#' + group + ' .radio-item').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+}
+
+async function generateSimple() {
+    const btn = document.getElementById('simpleBtn');
+    btn.innerHTML = '生成中<span class="loading"></span>'; btn.disabled = true;
+    try {
+        const result = await api('/api/random-itinerary', {
+            method: 'POST',
+            body: { budget: '中等', scenario: '动静结合', wake_time: '10:00', date: '' }
+        });
+        document.getElementById('simpleResult').innerHTML = `
+            <div class="suggestion-card">
+                <h4>💡 ${result.title || '给你个建议'}</h4>
+                <p>${result.description || result.schedule?.map(s => s.time + '：' + s.activity).join('<br>') || '暂无建议'}</p>
+            </div>
+        `;
+    } catch(e) {
+        // 后端随机接口可能需要 date 参数，降级用本地
+        const suggestions = [
+            {title:'🍜 来碗面',desc:'找家附近的面馆，吃碗热乎乎的拉面或牛肉面，边吃边聊。人均20-40。'},
+            {title:'☕ 咖啡馆坐坐',desc:'找家有氛围的咖啡馆，点杯喝的，聊聊天，发发呆。人均30-50。'},
+            {title:'🎬 看场电影',desc:'看看最近有什么新片，买张票，放松两小时。人均40-60。'},
+            {title:'🚶 公园散步',desc:'找个附近的公园，走走逛逛，呼吸新鲜空气，不花钱还健康。'},
+            {title:'🎮 网吧开黑',desc:'找家电竞馆，开两台机子，打几局游戏，重温青春。人均20-40。'},
+            {title:'🍢 路边烧烤',desc:'找个烧烤摊，点几串肉，喝瓶啤酒，聊人生聊理想。人均30-50。'},
+        ];
+        const s = suggestions[Math.floor(Math.random() * suggestions.length)];
+        document.getElementById('simpleResult').innerHTML = `
+            <div class="suggestion-card"><h4>${s.title}</h4><p>${s.desc}</p></div>
+            <button class="btn btn-secondary btn-full" style="margin-top:8px" onclick="generateSimple()">🔄 再来一个</button>
+        `;
+    } finally {
+        btn.innerHTML = '给我建议'; btn.disabled = false;
+    }
+}
+
+// ========== 启动 ==========
+initLogin();
+</script>
+</body>
+</html>
