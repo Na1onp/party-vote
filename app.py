@@ -291,6 +291,113 @@ def submit_vote():
         vote = db.execute('SELECT * FROM votes WHERE project_id = ? AND user_id = ?', (project_id, user_id)).fetchone()
         return jsonify(row_to_vote(vote)), 201
 
+@app.route('/api/projects/<code>/votes', methods=['POST'])
+def submit_vote_by_code(code):
+    data = request.get_json() or {}
+    db = get_db()
+    proj = db.execute('SELECT * FROM projects WHERE code = ?', (code.upper(),)).fetchone()
+    if not proj:
+        return jsonify({'error': '项目不存在'}), 404
+    project_id = proj['id']
+    user_id = data.get('user_id')
+    if not user_id:
+        return jsonify({'error': '缺少user_id'}), 400
+
+    existing = db.execute('SELECT * FROM votes WHERE project_id = ? AND user_id = ?', (project_id, user_id)).fetchone()
+
+    # 兼容前端字段
+    dates = data.get('dates_json')
+    date_val = dates if dates else json.dumps(data.get('dates', []), ensure_ascii=False)
+    activities = data.get('activities_json')
+    if not activities:
+        activities = json.dumps(data.get('activities', []), ensure_ascii=False)
+    tags = data.get('tags_json')
+    if not tags:
+        tags = json.dumps(data.get('tags', []), ensure_ascii=False)
+
+    # 把 cuisine/restaurant 放到 details 里
+    details = data.get('details_json')
+    if not details:
+        d = data.get('details', {})
+        if data.get('cuisine'):
+            d['cuisine'] = data['cuisine']
+        if data.get('restaurant'):
+            d['restaurant'] = data['restaurant']
+        details = json.dumps(d, ensure_ascii=False)
+
+    name = data.get('name', '')
+    avatar = data.get('avatar', '')
+    avatar_type = data.get('avatar_type', 'emoji')
+    avatar_data = data.get('avatar_data', '')
+    transport = data.get('transport', '')
+    people = data.get('people', '')
+    budget = data.get('budget', '')
+    note = data.get('note', '')
+    history = json.dumps(data.get('history', []), ensure_ascii=False)
+
+    if existing:
+        db.execute('''
+            UPDATE votes SET name=?, avatar=?, avatar_type=?, avatar_data=?, date=?, activities_json=?,
+            transport=?, people=?, budget=?, tags_json=?, note=?, details_json=?, history_json=?, last_modified=?
+            WHERE project_id=? AND user_id=?
+        ''', (name, avatar, avatar_type, avatar_data, date_val, activities, transport, people, budget,
+              tags, note, details, history, now_iso(), project_id, user_id))
+        db.commit()
+        vote = db.execute('SELECT * FROM votes WHERE project_id = ? AND user_id = ?', (project_id, user_id)).fetchone()
+        return jsonify(row_to_vote(vote))
+    else:
+        db.execute('''
+            INSERT INTO votes (project_id, user_id, name, avatar, avatar_type, avatar_data, date, activities_json,
+            transport, people, budget, tags_json, note, details_json, history_json, submitted_at, last_modified)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (project_id, user_id, name, avatar, avatar_type, avatar_data, date_val, activities,
+              transport, people, budget, tags, note, details, history, now_iso(), now_iso()))
+        db.commit()
+        vote = db.execute('SELECT * FROM votes WHERE project_id = ? AND user_id = ?', (project_id, user_id)).fetchone()
+        return jsonify(row_to_vote(vote)), 201
+
+@app.route('/api/projects/<code>/votes', methods=['GET'])
+def get_votes_by_code(code):
+    db = get_db()
+    proj = db.execute('SELECT * FROM projects WHERE code = ?', (code.upper(),)).fetchone()
+    if not proj:
+        return jsonify({'error': '项目不存在'}), 404
+    rows = db.execute('SELECT * FROM votes WHERE project_id = ?', (proj['id'],)).fetchall()
+    return jsonify({'votes': [row_to_vote(r) for r in rows]})
+
+@app.route('/api/projects/<code>/stats', methods=['GET'])
+def get_stats_by_code(code):
+    db = get_db()
+    proj = db.execute('SELECT * FROM projects WHERE code = ?', (code.upper(),)).fetchone()
+    if not proj:
+        return jsonify({'error': '项目不存在'}), 404
+    pid = proj['id']
+    votes = db.execute('SELECT * FROM votes WHERE project_id = ?', (pid,)).fetchall()
+    # 统计逻辑...
+    dates = {}; activities = {}; transports = {}; cuisines = {}; budgets = {}; people = {}
+    for v in votes:
+        for d in (json.loads(v['date']) if v['date'] else []):
+            dates[d] = dates.get(d, 0) + 1
+        for a in (json.loads(v['activities_json']) if v['activities_json'] else []):
+            activities[a] = activities.get(a, 0) + 1
+        if v['transport']:
+            transports[v['transport']] = transports.get(v['transport'], 0) + 1
+        if v['budget']:
+            budgets[v['budget']] = budgets.get(v['budget'], 0) + 1
+        if v['people']:
+            people[v['people']] = people.get(v['people'], 0) + 1
+        try:
+            det = json.loads(v['details_json']) if v['details_json'] else {}
+            if det.get('cuisine'):
+                cuisines[det['cuisine']] = cuisines.get(det['cuisine'], 0) + 1
+        except:
+            pass
+    return jsonify({
+        'total_votes': len(votes),
+        'dates': dates, 'activities': activities, 'transports': transports,
+        'cuisines': cuisines, 'budgets': budgets, 'people': people
+    })
+
 @app.route('/api/votes/<project_id>', methods=['GET'])
 def get_votes(project_id):
     db = get_db()
