@@ -2,6 +2,8 @@
 聚会投票后端 - Flask + SQLite
 运行: python app.py
 部署: gunicorn app:app
+
+数据库路径: 通过环境变量 DATABASE_PATH 配置（Railway Volume 挂载 /data/database.db）
 """
 import json
 import os
