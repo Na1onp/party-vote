@@ -431,8 +431,14 @@ def get_stats_by_code(code):
                 cuisines[det['cuisine']] = cuisines.get(det['cuisine'], 0) + 1
         except:
             pass
+    # 找最佳日期和热门项目
+    best_date = max(dates, key=dates.get) if dates else None
+    top_activity = max(activities, key=activities.get) if activities else None
+
     return jsonify({
         'total_votes': len(votes),
+        'best_date': best_date,
+        'top_activity': top_activity,
         'dates': dates, 'activities': activities, 'transports': transports,
         'cuisines': cuisines, 'budgets': budgets, 'people': people
     })
@@ -464,10 +470,12 @@ def row_to_vote(row):
     if not row:
         return {}
     d = dict(row)
-    d['activities'] = json.loads(d.pop('activities_json', '[]'))
-    d['tags'] = json.loads(d.pop('tags_json', '[]'))
-    d['details'] = json.loads(d.pop('details_json', '{}'))
-    d['history'] = json.loads(d.pop('history_json', '[]'))
+    # 保留原始 JSON 字符串供前端解析
+    d['activities_json'] = d.get('activities_json', '[]')
+    d['tags_json'] = d.get('tags_json', '[]')
+    d['details_json'] = d.get('details_json', '{}')
+    d['history_json'] = d.get('history_json', '[]')
+    d['dates_json'] = d.get('date', '[]')
     return d
 
 # ===================== 健康检查 =====================
