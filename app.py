@@ -13,9 +13,28 @@ import string
 from datetime import datetime
 from flask import Flask, request, jsonify, g
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
-CORS(app)  # 允许所有跨域请求
+
+# 跨域白名单：只允许下列来源的前端调用后端 API。
+# 通过环境变量 ALLOWED_ORIGINS 配置（逗号分隔）；默认含线上 Netlify 域名 + 本地开发来源。
+# 'null' 用于本地双击打开 HTML 文件时（浏览器 Origin 为 null）。
+ALLOWED_ORIGINS = os.environ.get(
+    'ALLOWED_ORIGINS',
+    'https://mellifluous-pie-aad9e4.netlify.app,http://localhost:8080,http://127.0.0.1:8080,null'
+).split(',')
+CORS(app, origins=ALLOWED_ORIGINS)
+
+# 限流：防止接口被脚本恶意刷爆（Railway 免费额度有限）。
+# 默认每人每天 1000 次、每小时 100 次；关键写接口单独收紧。
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["1000 per day", "100 per hour"],
+    storage_uri="memory://",
+)
 
 # 数据库路径：优先读环境变量 DATABASE_PATH。
 # 在 Railway 上挂了 Volume 后，把 DATABASE_PATH 设为 /data/database.db，
@@ -102,6 +121,7 @@ def now_iso():
 
 # ===================== API: 用户 =====================
 @app.route('/api/users', methods=['POST'])
+@limiter.limit("10 per minute")
 def create_user():
     data = request.get_json() or {}
     name = data.get('name', '').strip()
@@ -132,6 +152,7 @@ def get_user(user_id):
 
 # ===================== API: 项目 =====================
 @app.route('/api/projects', methods=['POST'])
+@limiter.limit("20 per minute")
 def create_project():
     data = request.get_json() or {}
     name = data.get('name', '').strip()
@@ -214,6 +235,7 @@ def get_user_projects(user_id):
     return jsonify(result)
 
 @app.route('/api/projects/join', methods=['POST'])
+@limiter.limit("20 per minute")
 def join_project():
     data = request.get_json() or {}
     code = data.get('code', '').strip().upper()
@@ -294,6 +316,7 @@ def delete_project(code):
 
 # ===================== API: 投票 =====================
 @app.route('/api/votes', methods=['POST'])
+@limiter.limit("30 per minute")
 def submit_vote():
     data = request.get_json() or {}
     project_id = data.get('project_id')
@@ -337,6 +360,7 @@ def submit_vote():
         return jsonify(row_to_vote(vote)), 201
 
 @app.route('/api/projects/<code>/votes', methods=['POST'])
+@limiter.limit("30 per minute")
 def submit_vote_by_code(code):
     data = request.get_json() or {}
     db = get_db()
