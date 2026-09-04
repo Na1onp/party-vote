@@ -1,0 +1,13 @@
+# 数据库文件不进版本库，避免部署时把线上真实数据回滚成本地旧数据
+database.db
+data/
+*.db
+
+# Python 缓存
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 系统文件
+.DS_Store

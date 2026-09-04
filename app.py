@@ -4,6 +4,7 @@
 部署: gunicorn app:app
 """
 import json
+import os
 import random
 import sqlite3
 import string
@@ -14,7 +15,10 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)  # 允许所有跨域请求
 
-DATABASE = 'database.db'
+# 数据库路径：优先读环境变量 DATABASE_PATH。
+# 在 Railway 上挂了 Volume 后，把 DATABASE_PATH 设为 /data/database.db，
+# 这样重新部署时数据就不会丢失（Volume 是持久存储，容器重建不销毁）。
+DATABASE = os.environ.get('DATABASE_PATH', 'database.db')
 
 # ===================== 数据库工具 =====================
 def get_db():
@@ -482,6 +486,28 @@ def row_to_vote(row):
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok', 'time': now_iso()})
+
+@app.route('/api/backup', methods=['GET'])
+def backup():
+    """导出全部数据，用于定期备份。浏览器打开即可下载 JSON 文件。"""
+    db = get_db()
+    data = {
+        'exported_at': now_iso(),
+        'users': [dict(r) for r in db.execute('SELECT * FROM users').fetchall()],
+        'projects': [dict(r) for r in db.execute('SELECT * FROM projects').fetchall()],
+        'project_members': [dict(r) for r in db.execute('SELECT * FROM project_members').fetchall()],
+        'votes': [dict(r) for r in db.execute('SELECT * FROM votes').fetchall()]
+    }
+    resp = jsonify(data)
+    resp.headers['Content-Disposition'] = 'attachment; filename=party-vote-backup.json'
+    return resp
+
+@app.route('/api/users', methods=['GET'])
+def list_users():
+    """列出所有用户（用于排查问题）"""
+    db = get_db()
+    rows = db.execute('SELECT id, name, avatar, avatar_type, created_at FROM users ORDER BY created_at').fetchall()
+    return jsonify([dict(r) for r in rows])
 
 # ===================== 启动 =====================
 # Railway / gunicorn 生产环境：导入时就初始化数据库
