@@ -10,7 +10,7 @@ import os
 import random
 import sqlite3
 import string
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -133,7 +133,10 @@ def uid():
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=12))
 
 def now_iso():
-    return datetime.now().isoformat()
+    # 关键：用 timezone.utc 让 .isoformat() 输出带 "+00:00" 后缀，
+    # 否则 Python datetime.now() 在 UTC 环境会输出无时区字符串，
+    # 前端 GMT+8 客户端按本地时区解析会偏差 8 小时，导致邀请码「刚创建就过期」。
+    return datetime.now(timezone.utc).isoformat()
 
 # ===================== API: 用户 =====================
 @app.route('/api/users', methods=['POST'])
@@ -179,8 +182,8 @@ def create_project():
     retention = int(data.get('retention_days', 0) or 0)
     expires_at = None
     if retention > 0:
-        expires_at = (datetime.now() + timedelta(days=retention)).isoformat()
-    invite_expires_at = (datetime.now() + timedelta(minutes=1)).isoformat()
+        expires_at = (datetime.now(timezone.utc) + timedelta(days=retention)).isoformat()
+    invite_expires_at = (datetime.now(timezone.utc) + timedelta(minutes=1)).isoformat()
 
     db = get_db()
     proj_id = 'p_' + uid()
@@ -214,14 +217,19 @@ def maybe_expire(proj):
     if proj.get('completed'):
         return False
     exp = proj.get('expires_at')
-    if exp and datetime.now() > datetime.fromisoformat(exp):
-        db = get_db()
-        db.execute('DELETE FROM votes WHERE project_id = ?', (proj['id'],))
-        db.execute('DELETE FROM project_members WHERE project_id = ?', (proj['id'],))
-        db.execute('DELETE FROM follow_votes WHERE project_id = ?', (proj['id'],))
-        db.execute('DELETE FROM projects WHERE id = ?', (proj['id'],))
-        db.commit()
-        return True
+    if exp:
+        try:
+            exp_dt = datetime.fromisoformat(exp)
+        except (TypeError, ValueError):
+            exp_dt = None
+        if exp_dt and datetime.now(timezone.utc) > (exp_dt if exp_dt.tzinfo else exp_dt.replace(tzinfo=timezone.utc)):
+            db = get_db()
+            db.execute('DELETE FROM votes WHERE project_id = ?', (proj['id'],))
+            db.execute('DELETE FROM project_members WHERE project_id = ?', (proj['id'],))
+            db.execute('DELETE FROM follow_votes WHERE project_id = ?', (proj['id'],))
+            db.execute('DELETE FROM projects WHERE id = ?', (proj['id'],))
+            db.commit()
+            return True
     return False
 
 @app.route('/api/projects/<code>', methods=['GET'])
@@ -403,7 +411,7 @@ def regen_code(code):
     new_code = rand_code()
     while db.execute('SELECT 1 FROM projects WHERE code = ?', (new_code,)).fetchone():
         new_code = rand_code()
-    new_inv = (datetime.now() + timedelta(minutes=1)).isoformat()
+    new_inv = (datetime.now(timezone.utc) + timedelta(minutes=1)).isoformat()
     db.execute('UPDATE projects SET code = ?, invite_expires_at = ? WHERE id = ?', (new_code, new_inv, proj['id']))
     db.commit()
     return jsonify({'code': new_code, 'invite_expires_at': new_inv})
