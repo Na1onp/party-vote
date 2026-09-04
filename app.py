@@ -210,10 +210,19 @@ def create_project():
         'retention_days': retention, 'expires_at': expires_at, 'invite_expires_at': invite_expires_at
     }), 201
 
+def _row_to_dict(proj):
+    """sqlite3.Row 没有 .get() 方法，统一转 dict 以兼容所有 .get() 调用"""
+    if proj is None:
+        return None
+    if isinstance(proj, dict):
+        return proj
+    return dict(proj)
+
 def maybe_expire(proj):
     """未完成的房间超过保留期则自动删除，返回 True 表示已删除"""
     if not proj:
         return False
+    proj = _row_to_dict(proj)
     if proj.get('completed'):
         return False
     exp = proj.get('expires_at')
@@ -235,7 +244,7 @@ def maybe_expire(proj):
 @app.route('/api/projects/<code>', methods=['GET'])
 def get_project(code):
     db = get_db()
-    proj = db.execute('SELECT * FROM projects WHERE code = ?', (code.upper(),)).fetchone()
+    proj = _row_to_dict(db.execute('SELECT * FROM projects WHERE code = ?', (code.upper(),)).fetchone())
     if not proj:
         return jsonify({'error': '项目不存在'}), 404
     if maybe_expire(proj):
@@ -278,6 +287,7 @@ def get_user_projects(user_id):
 
     result = []
     for proj in rows:
+        proj = _row_to_dict(proj)
         if maybe_expire(proj):
             continue
         members = db.execute('SELECT user_id FROM project_members WHERE project_id = ?', (proj['id'],)).fetchall()
@@ -304,7 +314,7 @@ def join_project():
         return jsonify({'error': '缺少参数'}), 400
 
     db = get_db()
-    proj = db.execute('SELECT * FROM projects WHERE code = ?', (code,)).fetchone()
+    proj = _row_to_dict(db.execute('SELECT * FROM projects WHERE code = ?', (code,)).fetchone())
     if not proj:
         return jsonify({'error': '项目不存在'}), 404
     if maybe_expire(proj):
