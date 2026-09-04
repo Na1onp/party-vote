@@ -489,9 +489,21 @@ def row_to_vote(row):
 def health():
     return jsonify({'status': 'ok', 'time': now_iso()})
 
+# ===================== 管理接口（需密钥） =====================
+def check_admin():
+    """校验管理员密钥。环境变量 ADMIN_TOKEN 未设置时一律拒绝，防止数据被陌生人下载/清空。
+    用法：URL 后加 ?token=xxx  或  请求头 X-Admin-Token: xxx"""
+    expected = os.environ.get('ADMIN_TOKEN')
+    if not expected:
+        return False
+    token = request.args.get('token') or request.headers.get('X-Admin-Token')
+    return token == expected
+
 @app.route('/api/backup', methods=['GET'])
 def backup():
-    """导出全部数据，用于定期备份。浏览器打开即可下载 JSON 文件。"""
+    """导出全部数据用于备份。需要管理员密钥：?token=你的密钥"""
+    if not check_admin():
+        return jsonify({'error': '未授权，需要正确的 token'}), 401
     db = get_db()
     data = {
         'exported_at': now_iso(),
@@ -506,10 +518,32 @@ def backup():
 
 @app.route('/api/users', methods=['GET'])
 def list_users():
-    """列出所有用户（用于排查问题）"""
+    """列出所有用户（排查用）。需要管理员密钥：?token=你的密钥"""
+    if not check_admin():
+        return jsonify({'error': '未授权，需要正确的 token'}), 401
     db = get_db()
     rows = db.execute('SELECT id, name, avatar, avatar_type, created_at FROM users ORDER BY created_at').fetchall()
     return jsonify([dict(r) for r in rows])
+
+@app.route('/api/admin/reset', methods=['POST'])
+def admin_reset():
+    """清空全部数据（用户、项目、成员、投票）。需要管理员密钥：?token=你的密钥"""
+    if not check_admin():
+        return jsonify({'error': '未授权，需要正确的 token'}), 401
+    db = get_db()
+    counts = {}
+    for table in ['votes', 'project_members', 'projects', 'users']:
+        counts[table] = db.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0]
+    db.execute('DELETE FROM votes')
+    db.execute('DELETE FROM project_members')
+    db.execute('DELETE FROM projects')
+    db.execute('DELETE FROM users')
+    db.commit()
+    return jsonify({
+        'success': True,
+        'message': '全部数据已清空',
+        'cleared': counts
+    })
 
 # ===================== 启动 =====================
 # Railway / gunicorn 生产环境：导入时就初始化数据库
