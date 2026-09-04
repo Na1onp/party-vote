@@ -10,7 +10,7 @@ import os
 import random
 import sqlite3
 import string
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -106,7 +106,23 @@ def init_db():
                 last_modified TEXT,
                 UNIQUE(project_id, user_id)
             );
+
+            CREATE TABLE IF NOT EXISTS follow_votes (
+                project_id TEXT NOT NULL,
+                activity TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                created_at TEXT,
+                PRIMARY KEY (project_id, activity, user_id)
+            );
         ''')
+        # 4.0 字段迁移（对已存在的表补充新列，缺失才加）
+        for col, typ in [('retention_days', 'INTEGER DEFAULT 0'),
+                         ('expires_at', 'TEXT'),
+                         ('invite_expires_at', 'TEXT')]:
+            try:
+                db.execute(f'ALTER TABLE projects ADD COLUMN {col} {typ}')
+            except Exception:
+                pass
         db.commit()
 
 def rand_code():
@@ -160,6 +176,12 @@ def create_project():
     if not name or not creator_id:
         return jsonify({'error': '缺少参数'}), 400
 
+    retention = int(data.get('retention_days', 0) or 0)
+    expires_at = None
+    if retention > 0:
+        expires_at = (datetime.now() + timedelta(days=retention)).isoformat()
+    invite_expires_at = (datetime.now() + timedelta(minutes=1)).isoformat()
+
     db = get_db()
     proj_id = 'p_' + uid()
     code = rand_code()
@@ -168,8 +190,8 @@ def create_project():
         code = rand_code()
 
     db.execute(
-        'INSERT INTO projects (id, code, name, creator_id, created_at) VALUES (?, ?, ?, ?, ?)',
-        (proj_id, code, name, creator_id, now_iso())
+        'INSERT INTO projects (id, code, name, creator_id, created_at, retention_days, expires_at, invite_expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        (proj_id, code, name, creator_id, now_iso(), retention, expires_at, invite_expires_at)
     )
     db.execute('INSERT INTO project_members (project_id, user_id) VALUES (?, ?)', (proj_id, creator_id))
     db.commit()
@@ -181,8 +203,26 @@ def create_project():
         'id': proj_id, 'code': code, 'name': name, 'creator_id': creator_id,
         'creator_name': creator['name'] if creator else '未知',
         'created_at': now_iso(), 'member_ids': [creator_id],
-        'completed': False, 'completed_at': None, 'summary': ''
+        'completed': False, 'completed_at': None, 'summary': '',
+        'retention_days': retention, 'expires_at': expires_at, 'invite_expires_at': invite_expires_at
     }), 201
+
+def maybe_expire(proj):
+    """未完成的房间超过保留期则自动删除，返回 True 表示已删除"""
+    if not proj:
+        return False
+    if proj.get('completed'):
+        return False
+    exp = proj.get('expires_at')
+    if exp and datetime.now() > datetime.fromisoformat(exp):
+        db = get_db()
+        db.execute('DELETE FROM votes WHERE project_id = ?', (proj['id'],))
+        db.execute('DELETE FROM project_members WHERE project_id = ?', (proj['id'],))
+        db.execute('DELETE FROM follow_votes WHERE project_id = ?', (proj['id'],))
+        db.execute('DELETE FROM projects WHERE id = ?', (proj['id'],))
+        db.commit()
+        return True
+    return False
 
 @app.route('/api/projects/<code>', methods=['GET'])
 def get_project(code):
@@ -190,12 +230,17 @@ def get_project(code):
     proj = db.execute('SELECT * FROM projects WHERE code = ?', (code.upper(),)).fetchone()
     if not proj:
         return jsonify({'error': '项目不存在'}), 404
+    if maybe_expire(proj):
+        return jsonify({'error': '项目已过期并自动解散'}), 404
 
     members = db.execute('SELECT user_id FROM project_members WHERE project_id = ?', (proj['id'],)).fetchall()
     member_ids = [m['user_id'] for m in members]
 
-    # 查创建者名字
+    # 查创建者名字（兜底：取第一个成员）
     creator = db.execute('SELECT name FROM users WHERE id = ?', (proj['creator_id'],)).fetchone()
+    creator_name = creator['name'] if creator else (member_ids and db.execute('SELECT name FROM users WHERE id = ?', (member_ids[0],)).fetchone())
+    if not creator_name:
+        creator_name = '未知'
 
     # 查成员详情
     member_details = []
@@ -208,7 +253,8 @@ def get_project(code):
     result['member_ids'] = member_ids
     result['members'] = member_details
     result['completed'] = bool(result.get('completed', 0))
-    result['creator_name'] = creator['name'] if creator else '未知'
+    result['creator_name'] = creator_name
+    result['invite_expires_at'] = proj.get('invite_expires_at')
     return jsonify(result)
 
 @app.route('/api/users/<user_id>/projects', methods=['GET'])
@@ -224,13 +270,19 @@ def get_user_projects(user_id):
 
     result = []
     for proj in rows:
+        if maybe_expire(proj):
+            continue
         members = db.execute('SELECT user_id FROM project_members WHERE project_id = ?', (proj['id'],)).fetchall()
         member_ids = [m['user_id'] for m in members]
         creator = db.execute('SELECT name FROM users WHERE id = ?', (proj['creator_id'],)).fetchone()
+        creator_name = creator['name'] if creator else '未知'
         d = dict(proj)
         d['member_ids'] = member_ids
         d['completed'] = bool(d.get('completed', 0))
-        d['creator_name'] = creator['name'] if creator else '未知'
+        d['creator_name'] = creator_name
+        d['invite_expires_at'] = proj.get('invite_expires_at')
+        d['expires_at'] = proj.get('expires_at')
+        d['retention_days'] = proj.get('retention_days', 0)
         result.append(d)
     return jsonify(result)
 
@@ -247,6 +299,12 @@ def join_project():
     proj = db.execute('SELECT * FROM projects WHERE code = ?', (code,)).fetchone()
     if not proj:
         return jsonify({'error': '项目不存在'}), 404
+    if maybe_expire(proj):
+        return jsonify({'error': '项目已过期并自动解散'}), 404
+    # 邀请码有效期校验（防止旧码被乱试进入）
+    inv = proj.get('invite_expires_at')
+    if inv and datetime.now() > datetime.fromisoformat(inv):
+        return jsonify({'error': '邀请码已过期，请让房主在房间内重新生成'}), 410
 
     existing = db.execute('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?', (proj['id'], user_id)).fetchone()
     if not existing:
@@ -257,6 +315,7 @@ def join_project():
     result = dict(proj)
     result['member_ids'] = [m['user_id'] for m in members]
     result['completed'] = bool(result.get('completed', 0))
+    result['invite_expires_at'] = proj.get('invite_expires_at')
     return jsonify(result)
 
 @app.route('/api/projects/<code>/complete', methods=['POST'])
@@ -313,6 +372,78 @@ def delete_project(code):
     db.execute('DELETE FROM projects WHERE id = ?', (proj['id'],))
     db.commit()
     return jsonify({'success': True})
+
+# 退出项目（成员主动离开）
+@app.route('/api/projects/<code>/leave', methods=['POST'])
+def leave_project(code):
+    data = request.get_json() or {}
+    user_id = data.get('user_id')
+    if not user_id:
+        return jsonify({'error': '缺少 user_id'}), 400
+    db = get_db()
+    proj = db.execute('SELECT * FROM projects WHERE code = ?', (code.upper(),)).fetchone()
+    if not proj:
+        return jsonify({'error': '项目不存在'}), 404
+    db.execute('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', (proj['id'], user_id))
+    db.execute('DELETE FROM votes WHERE project_id = ? AND user_id = ?', (proj['id'], user_id))
+    db.execute('DELETE FROM follow_votes WHERE project_id = ? AND user_id = ?', (proj['id'], user_id))
+    db.commit()
+    return jsonify({'success': True})
+
+# 重新生成邀请码（房主调用，重置 1 分钟有效期）
+@app.route('/api/projects/<code>/regen', methods=['POST'])
+def regen_code(code):
+    data = request.get_json() or {}
+    db = get_db()
+    proj = db.execute('SELECT * FROM projects WHERE code = ?', (code.upper(),)).fetchone()
+    if not proj:
+        return jsonify({'error': '项目不存在'}), 404
+    if proj['creator_id'] != data.get('user_id'):
+        return jsonify({'error': '只有房主能重新生成邀请码'}), 403
+    new_code = rand_code()
+    while db.execute('SELECT 1 FROM projects WHERE code = ?', (new_code,)).fetchone():
+        new_code = rand_code()
+    new_inv = (datetime.now() + timedelta(minutes=1)).isoformat()
+    db.execute('UPDATE projects SET code = ?, invite_expires_at = ? WHERE id = ?', (new_code, new_inv, proj['id']))
+    db.commit()
+    return jsonify({'code': new_code, 'invite_expires_at': new_inv})
+
+# 跟票（每人同一项只能 +1 一次）
+@app.route('/api/projects/<code>/follow', methods=['POST'])
+@limiter.limit("30 per minute")
+def follow_activity(code):
+    data = request.get_json() or {}
+    user_id = data.get('user_id')
+    activity = (data.get('activity') or '').strip()
+    if not user_id or not activity:
+        return jsonify({'error': '缺少参数'}), 400
+    db = get_db()
+    proj = db.execute('SELECT * FROM projects WHERE code = ?', (code.upper(),)).fetchone()
+    if not proj:
+        return jsonify({'error': '项目不存在'}), 404
+    existing = db.execute('SELECT 1 FROM follow_votes WHERE project_id = ? AND activity = ? AND user_id = ?',
+                          (proj['id'], activity, user_id)).fetchone()
+    if not existing:
+        db.execute('INSERT INTO follow_votes (project_id, activity, user_id, created_at) VALUES (?, ?, ?, ?)',
+                   (proj['id'], activity, user_id, now_iso()))
+        db.commit()
+    count = db.execute('SELECT COUNT(*) FROM follow_votes WHERE project_id = ? AND activity = ?',
+                      (proj['id'], activity)).fetchone()[0]
+    return jsonify({'success': True, 'activity': activity, 'count': count, 'already': bool(existing)})
+
+# 获取某项跟票数 / 全部跟票
+@app.route('/api/projects/<code>/follow', methods=['GET'])
+def get_follows(code):
+    db = get_db()
+    proj = db.execute('SELECT * FROM projects WHERE code = ?', (code.upper(),)).fetchone()
+    if not proj:
+        return jsonify({'error': '项目不存在'}), 404
+    rows = db.execute('SELECT activity, COUNT(*) as c FROM follow_votes WHERE project_id = ? GROUP BY activity',
+                     (proj['id'],)).fetchall()
+    result = {}
+    for r in rows:
+        result[r['activity']] = r['c']
+    return jsonify(result)
 
 # ===================== API: 投票 =====================
 @app.route('/api/votes', methods=['POST'])
